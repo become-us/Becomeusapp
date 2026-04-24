@@ -1,22 +1,22 @@
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import { InlineEditorProvider } from '@/lib/inlineEditor';
+import { EditorProvider } from '@/lib/editorStore';
 import Navbar from '@/components/Navbar';
 import HomePage from '@/pages/HomePage';
 import CustomizerPanel from '@/components/CustomizerPanel';
-import EditModeToggle from '@/components/EditModeToggle';
+import { EditToggle } from '@/components/EditZone';
 
 function App() {
   return (
-    <InlineEditorProvider>
+    <EditorProvider>
       <Router>
         <Navbar />
         <Routes>
           <Route path="/" element={<HomePage />} />
         </Routes>
         <CustomizerPanel />
-        <EditModeToggle />
+        <EditToggle />
       </Router>
-    </InlineEditorProvider>
+    </EditorProvider>
   );
 }
 
