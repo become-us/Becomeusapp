@@ -2,6 +2,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'node:fs/promises';
 import nodePath from 'node:path';
 import { componentTagger } from 'lovable-tagger';
@@ -218,6 +219,41 @@ export default defineConfig(({ mode }) => {
       mode === 'development' &&
       componentTagger(),
       cdnPrefixImages(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['images/becomeus_logo.png', 'icons/*.png'],
+        manifest: {
+          name: 'BecomeUs — Coaching RH',
+          short_name: 'BecomeUs',
+          description: 'On arrive seul. On repart en équipe.',
+          theme_color: '#7A90B5',
+          background_color: '#F4F6FB',
+          display: 'standalone',
+          orientation: 'portrait',
+          scope: '/',
+          start_url: '/',
+          icons: [
+            { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          ],
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/cqkumhjujfgypjfsptfp\.supabase\.co\/.*/i,
+              handler: 'NetworkFirst',
+              options: { cacheName: 'supabase-cache', expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 } },
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: { cacheName: 'google-fonts-cache' },
+            },
+          ],
+        },
+      }),
     ].filter(Boolean),
     resolve: {
       alias: {

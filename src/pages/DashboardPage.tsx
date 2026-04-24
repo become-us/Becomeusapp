@@ -1,558 +1,249 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import {
-  POSTES,
-  moyenne,
-  niveauLabel,
-  isAdminAuthenticated,
-  adminLogin,
-  type Reponse,
-  type QType,
-  type PosteType,
-} from '@/lib/index';
-import {
-  fetchReponses,
-  removeReponse,
-  exportCSVFromDb,
-  fetchConfig,
-} from '@/lib/db';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, RadarChart, PolarGrid,
-  PolarAngleAxis, PolarRadiusAxis, Radar, Legend,
-} from 'recharts';
-import { motion } from 'framer-motion';
-import { springPresets } from '@/lib/motion';
-import {
-  Download, Trash2, RefreshCw, Users, ClipboardList,
-  TrendingUp, AlertCircle, Loader2, Lock, Eye, EyeOff, BarChart2,
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
+import { Users, Rocket, BookOpen, CloudSun, UserPlus, ArrowRight, Pencil, Check, X } from 'lucide-react';
 
-const QTYPES: QType[] = ['post-formation', '4-6 mois'];
-const COLORS_QTYPE: Record<QType, string> = {
-  'post-formation': '#3B82F6',
-  '4-6 mois': '#8B5CF6',
-};
-const COLORS_POSTE = ['#2563EB', '#0D9488', '#7C3AED', '#D97706', '#DC2626'];
+interface Stats { team: number; integrations: number; formations: number; mood: string; }
 
-function Badge({ avg }: { avg: number | null }) {
-  const { label, color } = niveauLabel(avg);
-  const bg =
-    avg === null ? 'bg-gray-100 text-gray-500'
-    : avg >= 3.5 ? 'bg-green-100 text-green-700'
-    : avg >= 3   ? 'bg-blue-100 text-blue-700'
-    : avg >= 2.5 ? 'bg-orange-100 text-orange-700'
-    : 'bg-red-100 text-red-700';
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${bg}`} style={{ color }}>
-      {label} {avg !== null ? `(${avg.toFixed(2)})` : ''}
-    </span>
-  );
+/* ---- types modifiables ---- */
+interface CardConfig { label: string; desc: string; color: string; bg: string; }
+interface KpiConfig  { label: string; color: string; bg: string; }
+
+const CARD_DEFAULTS: CardConfig[] = [
+  { label: 'Mon équipe',       desc: 'Gérez vos collaborateurs', color: '#7A90B5', bg: '#EDF2FB' },
+  { label: 'Mes intégrations', desc: 'Suivez les parcours',      color: '#C4956A', bg: '#FDF3EC' },
+  { label: 'Mes formations',   desc: 'Bilans post-formation',    color: '#9B85C4', bg: '#F3EFFC' },
+  { label: "Météo d'équipe",   desc: "Humeur de l'équipe",       color: '#6BB5A0', bg: '#EFFAF6' },
+];
+const KPI_DEFAULTS: KpiConfig[] = [
+  { label: 'Membres',              color: '#7A90B5', bg: '#EDF2FB' },
+  { label: 'Intégrations',         color: '#C4956A', bg: '#FDF3EC' },
+  { label: 'Formations',           color: '#9B85C4', bg: '#F3EFFC' },
+  { label: 'Météo cette semaine',  color: '#6BB5A0', bg: '#EFFAF6' },
+];
+const CARD_ROUTES = ['/equipe','/integrations','/formations','/meteo'];
+const CARD_ICONS  = [Users, Rocket, BookOpen, CloudSun];
+const KPI_ICONS   = [Users, Rocket, BookOpen, CloudSun];
+const KPI_KEYS    = ['team','integrations','formations','mood'] as const;
+
+function loadLS<T>(key: string, def: T): T {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; }
 }
+function saveLS(key: string, val: unknown) { localStorage.setItem(key, JSON.stringify(val)); }
 
-// ─── Onglet Synthèse ─────────────────────────────────────────────────────────
-function TabSynthese({ reponses }: { reponses: Reponse[] }) {
-  const byQType = QTYPES.map((qt) => {
-    const subset = reponses.filter((r) => r.questionnaire === qt);
-    const allNotes = subset.flatMap((r) => r.notes.map((n) => n.valeur));
-    return { name: `Bilan ${qt}`, avg: moyenne(allNotes), count: subset.length };
-  });
-  const byPoste = POSTES.map((p, i) => {
-    const subset = reponses.filter((r) => r.poste === p);
-    const allNotes = subset.flatMap((r) => r.notes.map((n) => n.valeur));
-    return { name: p, avg: moyenne(allNotes), count: subset.length, color: COLORS_POSTE[i] };
-  });
-  const heatmap = POSTES.map((p) => {
-    const row: Record<string, unknown> = { poste: p };
-    QTYPES.forEach((qt) => { row[qt] = reponses.filter((r) => r.poste === p && r.questionnaire === qt).length; });
-    return row;
-  });
-
-  if (reponses.length === 0) return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <ClipboardList className="w-12 h-12 text-muted-foreground/30 mb-4" />
-      <p className="text-sm font-medium text-muted-foreground">Aucune réponse enregistrée</p>
-      <p className="text-xs text-muted-foreground/70 mt-1">Remplissez un questionnaire pour voir les statistiques ici.</p>
-    </div>
-  );
-
-  return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total réponses', value: reponses.length, mono: true },
-          { label: 'Moyenne globale', value: moyenne(reponses.flatMap((r) => r.notes.map((n) => n.valeur)))?.toFixed(2) ?? '—', mono: true },
-          { label: 'Postes différents', value: new Set(reponses.map((r) => r.poste)).size, mono: true },
-          { label: 'Bilans complétés', value: `${new Set(reponses.map((r) => r.questionnaire)).size}/3`, mono: false },
-        ].map((k, i) => (
-          <div key={i} className="bg-card border border-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground font-medium mb-1">{k.label}</p>
-            <p className={`text-3xl font-bold text-foreground ${k.mono ? 'font-mono' : ''}`}>{k.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Moyenne globale par étape de bilan</h3>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={byQType} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis domain={[0, 4]} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: number) => [v?.toFixed(2), 'Moyenne']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-            <Bar dataKey="avg" radius={[6, 6, 0, 0]}>
-              {byQType.map((_, i) => <Cell key={i} fill={COLORS_QTYPE[QTYPES[i]]} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-        <div className="mt-3 flex flex-wrap gap-3">
-          {byQType.map((d, i) => (
-            <span key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: COLORS_QTYPE[QTYPES[i]] }} />
-              {d.name} — <strong>{d.count} rép.</strong> {d.avg !== null && <Badge avg={d.avg} />}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Moyenne globale par poste</h3>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={byPoste} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-            <YAxis domain={[0, 4]} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: number) => [v?.toFixed(2), 'Moyenne']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-            <Bar dataKey="avg" radius={[6, 6, 0, 0]}>
-              {byPoste.map((e, i) => <Cell key={i} fill={e.color} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Nombre de réponses par poste et étape</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground">Poste</th>
-                {QTYPES.map((qt) => <th key={qt} className="text-center py-2 px-4 text-xs font-semibold text-muted-foreground">Bilan {qt}</th>)}
-                <th className="text-center py-2 px-4 text-xs font-semibold text-muted-foreground">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {heatmap.map((row, i) => {
-                const total = QTYPES.reduce((s, qt) => s + ((row[qt] as number) || 0), 0);
-                return (
-                  <tr key={i} className="border-t border-border">
-                    <td className="py-2.5 pr-4 text-xs font-medium text-foreground">{row.poste as string}</td>
-                    {QTYPES.map((qt) => {
-                      const v = (row[qt] as number) || 0;
-                      return (
-                        <td key={qt} className="text-center py-2.5 px-4">
-                          <span className={`inline-flex w-8 h-8 rounded-lg text-xs font-bold items-center justify-center ${v === 0 ? 'bg-muted text-muted-foreground' : v >= 3 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{v}</span>
-                        </td>
-                      );
-                    })}
-                    <td className="text-center py-2.5 px-4 font-bold text-foreground text-xs">{total}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Onglet Détail par question ──────────────────────────────────────────────
-function TabQuestions({ reponses }: { reponses: Reponse[] }) {
-  const [selectedQ, setSelectedQ] = useState<QType>('post-formation');
-  const [selectedPoste, setSelectedPoste] = useState<PosteType | 'Tous'>('Tous');
-  const [configs, setConfigs] = useState<Array<{ type: QType; domaines: Array<{ titre: string; questionsNotes: Array<{ id: string; label: string; postes?: PosteType[] }> }> }>>([]);
-
-  useEffect(() => {
-    fetchConfig().then(setConfigs).catch(() => setConfigs([]));
-  }, []);
-
-  const config = configs.find((q) => q.type === selectedQ);
-  const filteredReponses = reponses.filter((r) => r.questionnaire === selectedQ && (selectedPoste === 'Tous' || r.poste === selectedPoste));
-
-  const questionStats = useMemo(() => {
-    if (!config) return [];
-    return config.domaines.flatMap((d) =>
-      d.questionsNotes
-        .filter((q) => !q.postes || selectedPoste === 'Tous' || q.postes.includes(selectedPoste as PosteType))
-        .map((q) => {
-          const vals = filteredReponses.map((r) => r.notes.find((n) => n.questionId === q.id)?.valeur).filter((v): v is number => v !== undefined);
-          const dist = [1, 2, 3, 4].map((v) => ({ note: v, pct: vals.length > 0 ? Math.round((vals.filter((x) => x === v).length / vals.length) * 100) : 0 }));
-          return { id: q.id, label: q.label, avg: moyenne(vals), n: vals.length, dist };
-        })
-    );
-  }, [config, filteredReponses, selectedPoste]);
-
-  const radarData = useMemo(() => {
-    if (!config) return [];
-    return config.domaines.map((d) => {
-      const allVals = d.questionsNotes
-        .filter((q) => !q.postes || selectedPoste === 'Tous' || q.postes.includes(selectedPoste as PosteType))
-        .flatMap((q) => filteredReponses.map((r) => r.notes.find((n) => n.questionId === q.id)?.valeur).filter((v): v is number => v !== undefined));
-      return { domaine: d.titre.length > 18 ? d.titre.slice(0, 18) + '…' : d.titre, moyenne: moyenne(allVals) ?? 0 };
-    });
-  }, [config, filteredReponses, selectedPoste]);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-3">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1.5">Étape du bilan</p>
-          <div className="flex gap-2">
-            {QTYPES.map((qt) => (
-              <button key={qt} onClick={() => setSelectedQ(qt)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${selectedQ === qt ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-foreground hover:bg-muted'}`}>{qt}</button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1.5">Poste</p>
-          <div className="flex flex-wrap gap-2">
-            {(['Tous', ...POSTES] as (PosteType | 'Tous')[]).map((p) => (
-              <button key={p} onClick={() => setSelectedPoste(p)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${selectedPoste === p ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-foreground hover:bg-muted'}`}>{p}</button>
-            ))}
-          </div>
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">{filteredReponses.length} réponse{filteredReponses.length > 1 ? 's' : ''} pour cette sélection</p>
-      {filteredReponses.length === 0 ? (
-        <div className="flex flex-col items-center py-16 text-center"><AlertCircle className="w-10 h-10 text-muted-foreground/30 mb-3" /><p className="text-sm text-muted-foreground">Aucune réponse pour cette sélection.</p></div>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4">Vue radar par domaine</h3>
-            <ResponsiveContainer width="100%" height={260}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="#E5E7EB" />
-                <PolarAngleAxis dataKey="domaine" tick={{ fontSize: 10 }} />
-                <PolarRadiusAxis domain={[0, 4]} tick={{ fontSize: 9 }} tickCount={5} />
-                <Radar name="Moyenne" dataKey="moyenne" stroke={COLORS_QTYPE[selectedQ]} fill={COLORS_QTYPE[selectedQ]} fillOpacity={0.25} />
-                <Legend />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4">Moyenne par domaine</h3>
-            <div className="space-y-3">
-              {radarData.map((d, i) => (
-                <div key={i}>
-                  <div className="flex items-center justify-between mb-1"><span className="text-xs text-foreground font-medium truncate max-w-[180px]">{d.domaine}</span><Badge avg={d.moyenne > 0 ? d.moyenne : null} /></div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(d.moyenne / 4) * 100}%`, background: COLORS_QTYPE[selectedQ] }} /></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-      {filteredReponses.length > 0 && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-border bg-muted/40"><h3 className="text-sm font-semibold text-foreground">Détail par question</h3></div>
-          <div className="divide-y divide-border">
-            {questionStats.map((qs) => (
-              <div key={qs.id} className="px-5 py-4">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <p className="text-xs text-foreground font-medium leading-relaxed">{qs.label}</p>
-                  <div className="flex items-center gap-2 flex-shrink-0"><span className="text-[10px] text-muted-foreground">{qs.n} rép.</span><Badge avg={qs.avg} /></div>
-                </div>
-                {qs.n > 0 && (
-                  <div className="flex gap-1">
-                    {qs.dist.map((d) => (
-                      <div key={d.note} className="flex-1 text-center">
-                        <div className="h-1.5 rounded-full mb-1" style={{ background: d.pct > 0 ? COLORS_QTYPE[selectedQ] : '#E5E7EB', opacity: d.pct > 0 ? 0.3 + (d.pct / 100) * 0.7 : 1 }} />
-                        <span className="text-[10px] text-muted-foreground">{d.note}: {d.pct}%</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Onglet Progression ──────────────────────────────────────────────────────
-function TabProgression({ reponses }: { reponses: Reponse[] }) {
-  const data = POSTES.map((p, i) => {
-    const row: Record<string, unknown> = { poste: p };
-    QTYPES.forEach((qt) => { const subset = reponses.filter((r) => r.poste === p && r.questionnaire === qt); row[qt] = moyenne(subset.flatMap((r) => r.notes.map((n) => n.valeur))); });
-    row.color = COLORS_POSTE[i];
-    return row;
-  }).filter((r) => QTYPES.some((qt) => r[qt] !== null));
-
-  if (data.length === 0 || reponses.length === 0) return (
-    <div className="flex flex-col items-center py-20 text-center">
-      <TrendingUp className="w-12 h-12 text-muted-foreground/30 mb-4" />
-      <p className="text-sm text-muted-foreground">Pas encore assez de données pour la progression.</p>
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Évolution des moyennes — toutes étapes confondues</h3>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-            <XAxis dataKey="poste" tick={{ fontSize: 10 }} />
-            <YAxis domain={[0, 4]} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: number) => [v?.toFixed(2), '']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-            <Legend />
-            {QTYPES.map((qt) => <Bar key={qt} dataKey={qt} name={`Bilan ${qt}`} fill={COLORS_QTYPE[qt]} radius={[4, 4, 0, 0]} />)}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-border bg-muted/40"><h3 className="text-sm font-semibold text-foreground">Tableau de progression par poste</h3></div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border">
-              <tr>
-                <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">Poste</th>
-                {QTYPES.map((qt) => <th key={qt} className="text-center px-4 py-2.5 text-xs font-semibold text-muted-foreground">Bilan {qt}</th>)}
-                <th className="text-center px-4 py-2.5 text-xs font-semibold text-muted-foreground">Tendance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {POSTES.map((p) => {
-                const avgs = QTYPES.map((qt) => moyenne(reponses.filter((r) => r.poste === p && r.questionnaire === qt).flatMap((r) => r.notes.map((n) => n.valeur))));
-                const first = avgs.find((a) => a !== null);
-                const last = [...avgs].reverse().find((a) => a !== null);
-                let tendance = '—', tendanceColor = 'text-muted-foreground';
-                if (first != null && last != null && first !== last) { tendance = last > first ? 'Progression' : 'Régression'; tendanceColor = last > first ? 'text-green-600' : 'text-red-600'; }
-                else if (first != null) { tendance = 'Stable'; tendanceColor = 'text-blue-600'; }
-                return (
-                  <tr key={p} className="border-t border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-5 py-3 text-xs font-medium text-foreground">{p}</td>
-                    {avgs.map((avg, i) => <td key={i} className="text-center px-4 py-3"><Badge avg={avg} /></td>)}
-                    <td className={`text-center px-4 py-3 text-xs font-semibold ${tendanceColor}`}>{tendance}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Onglet Données brutes ───────────────────────────────────────────────────
-function TabDonnees({ reponses, onDelete }: { reponses: Reponse[]; onDelete: (id: string) => void }) {
-  if (reponses.length === 0) return (
-    <div className="flex flex-col items-center py-20 text-center">
-      <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
-      <p className="text-sm text-muted-foreground">Aucune réponse enregistrée.</p>
-    </div>
-  );
-  return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[700px]">
-          <thead className="border-b border-border bg-muted/40">
-            <tr>
-              {['Collaborateur', 'Poste', 'Bilan', 'Date complétion', 'Référent', 'Moy.', 'Niveau', ''].map((h, i) => (
-                <th key={i} className={`py-3 text-xs font-semibold text-muted-foreground ${i <= 4 ? 'text-left px-4' : 'text-center px-4'}`}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {reponses.map((r) => {
-              const avg = moyenne(r.notes.map((n) => n.valeur));
-              const initiales = `${(r.prenom || '?').charAt(0).toUpperCase()}${(r.nom || '?').charAt(0).toUpperCase()}`;
-              return (
-                <tr key={r.id} className="border-t border-border hover:bg-muted/20 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-[10px] font-bold text-primary">{initiales}</span>
-                      </div>
-                      <p className="text-xs font-semibold text-foreground">{r.prenom} {r.nom ? r.nom.toUpperCase() : ''}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{r.poste}</td>
-                  <td className="px-4 py-3"><span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-semibold">{r.questionnaire}</span></td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{r.dateCompletion || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{r.referent || '—'}</td>
-                  <td className="px-4 py-3 text-center text-xs font-bold text-foreground font-mono">{avg?.toFixed(2) ?? '—'}</td>
-                  <td className="px-4 py-3 text-center"><Badge avg={avg} /></td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => { if (window.confirm(`Supprimer la réponse de ${r.prenom} ${r.nom} ?`)) onDelete(r.id); }} className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ─── Auth Gate Dashboard ─────────────────────────────────────────────────────
-function DashboardAuthGate({ onLogin }: { onLogin: () => void }) {
-  const [pwd, setPwd] = useState('');
-  const [show, setShow] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminLogin(pwd)) { onLogin(); }
-    else { setError('Mot de passe incorrect.'); setPwd(''); }
+/* ---- mini éditeur inline ---- */
+function Editable({ value, onChange, textarea, style }: {
+  value: string; onChange: (v: string) => void; textarea?: boolean; style?: React.CSSProperties;
+}) {
+  const [v, setV] = useState(value);
+  const props = {
+    value: v,
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV(e.target.value),
+    onBlur: () => onChange(v),
+    className: 'bg-white/80 border border-dashed border-blue-300 rounded px-1 focus:outline-none focus:ring-1 focus:ring-blue-400 w-full text-inherit font-inherit',
+    style,
   };
-
-  return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="bg-card border border-border rounded-2xl p-8 w-full max-w-sm shadow-sm">
-        <div className="flex flex-col items-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-sm">
-            <BarChart2 className="w-7 h-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-xl font-bold text-foreground">Tableau de bord</h1>
-          <p className="text-xs text-muted-foreground mt-1 text-center">Accès réservé aux administrateurs</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Mot de passe administrateur</label>
-            <div className="relative">
-              <input
-                type={show ? 'text' : 'password'}
-                value={pwd}
-                onChange={e => { setPwd(e.target.value); setError(''); }}
-                placeholder="••••••••"
-                autoFocus
-                className="w-full px-3 py-2.5 pr-10 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
-          </div>
-          <button type="submit" className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-            <Lock className="w-4 h-4" /> Accéder au tableau de bord
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+  return textarea
+    ? <textarea {...props} rows={2} className={props.className + ' resize-none text-sm'} />
+    : <input {...props} />;
 }
 
-// ─── Page Dashboard ───────────────────────────────────────────────────────────
-type Tab = 'synthese' | 'questions' | 'progression' | 'donnees';
+function ColorDot({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="relative cursor-pointer" title="Changer la couleur">
+      <span className="w-5 h-5 rounded-full border-2 border-white shadow inline-block" style={{ background: value }} />
+      <input type="color" value={value} onChange={e => onChange(e.target.value)}
+        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+    </label>
+  );
+}
 
 export default function DashboardPage() {
-  const [authed, setAuthed] = useState(isAdminAuthenticated());
-  const [tab, setTab] = useState<Tab>('synthese');
-  const [reponses, setReponses] = useState<Reponse[]>([]);
+  const { user } = useAuth();
+  const [stats, setStats] = useState<Stats>({ team: 0, integrations: 0, formations: 0, mood: '—' });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [editMode, setEditMode] = useState(false);
+  const [cards, setCards] = useState<CardConfig[]>(() => loadLS('bu_dash_cards', CARD_DEFAULTS));
+  const [kpis,  setKpis]  = useState<KpiConfig[]>(() => loadLS('bu_dash_kpis',  KPI_DEFAULTS));
+  const [greeting, setGreeting] = useState(() => loadLS('bu_dash_greeting', 'Voici un aperçu de votre équipe aujourd\'hui'));
+  const [quickTitle, setQuickTitle] = useState(() => loadLS('bu_dash_qt', 'Ajouter un nouveau membre'));
+  const [quickDesc,  setQuickDesc]  = useState(() => loadLS('bu_dash_qd', 'Intégrez un nouveau talent dans votre équipe'));
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await fetchReponses();
-      setReponses(data);
-    } catch (e) {
-      setError('Impossible de charger les données. Vérifiez votre connexion.');
-    } finally {
+  const prenom = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Coach';
+
+  useEffect(() => {
+    const load = async () => {
+      const [t, i, f, m] = await Promise.all([
+        supabase.from('team_members').select('id', { count: 'exact' }).eq('user_id', user!.id),
+        supabase.from('integrations').select('id', { count: 'exact' }).eq('user_id', user!.id).eq('statut', 'en_cours'),
+        supabase.from('formations').select('id', { count: 'exact' }).eq('user_id', user!.id),
+        supabase.from('team_mood').select('humeur').eq('user_id', user!.id).gte('semaine', new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]),
+      ]);
+      const moods = m.data || [];
+      const mc: Record<string, number> = {};
+      moods.forEach((r: { humeur: string }) => { mc[r.humeur] = (mc[r.humeur] || 0) + 1; });
+      const top = Object.entries(mc).sort((a, b) => b[1] - a[1])[0]?.[0];
+      const emoji: Record<string, string> = { super:'😄', bien:'😊', moyen:'😐', difficile:'😔' };
+      setStats({ team: t.count||0, integrations: i.count||0, formations: f.count||0, mood: emoji[top] || '—' });
       setLoading(false);
-    }
-  }, []);
+    };
+    if (user) load();
+  }, [user]);
 
-  useEffect(() => { load(); }, [load]);
-
-  const handleDelete = async (id: string) => {
-    try {
-      await removeReponse(id);
-      setReponses((prev) => prev.filter((r) => r.id !== id));
-    } catch {
-      alert('Erreur lors de la suppression.');
-    }
+  const saveAll = () => {
+    saveLS('bu_dash_cards', cards);
+    saveLS('bu_dash_kpis', kpis);
+    saveLS('bu_dash_greeting', greeting);
+    saveLS('bu_dash_qt', quickTitle);
+    saveLS('bu_dash_qd', quickDesc);
+    setEditMode(false);
+  };
+  const resetAll = () => {
+    setCards(CARD_DEFAULTS); setKpis(KPI_DEFAULTS);
+    setGreeting('Voici un aperçu de votre équipe aujourd\'hui');
+    setQuickTitle('Ajouter un nouveau membre');
+    setQuickDesc('Intégrez un nouveau talent dans votre équipe');
+    ['bu_dash_cards','bu_dash_kpis','bu_dash_greeting','bu_dash_qt','bu_dash_qd'].forEach(k => localStorage.removeItem(k));
   };
 
-  const handleExport = async () => {
-    try {
-      const csv = await exportCSVFromDb();
-      if (!csv) return;
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `questionnaires_sommeil_${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert('Erreur lors de l\'export.');
-    }
+  const updateCard = (i: number, patch: Partial<CardConfig>) =>
+    setCards(prev => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c));
+  const updateKpi = (i: number, patch: Partial<KpiConfig>) =>
+    setKpis(prev => prev.map((k, idx) => idx === i ? { ...k, ...patch } : k));
+
+  const statValues: Record<string, string | number> = {
+    team: stats.team, integrations: stats.integrations, formations: stats.formations, mood: stats.mood,
   };
-
-  const TABS: { id: Tab; label: string }[] = [
-    { id: 'synthese', label: 'Synthèse' },
-    { id: 'questions', label: 'Par question' },
-    { id: 'progression', label: 'Progression' },
-    { id: 'donnees', label: 'Données brutes' },
-  ];
-
-  if (!authed) return <DashboardAuthGate onLogin={() => setAuthed(true)} />;
+  const statSuffix: Record<string, string> = {
+    team: 'membres', integrations: 'en cours', formations: 'bilans', mood: '',
+  };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={springPresets.gentle}>
-      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Tableau de bord</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {loading ? 'Chargement…' : `${reponses.length} réponse${reponses.length > 1 ? 's' : ''} — données en temps réel depuis Supabase`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={load} disabled={loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-50">
-            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Actualiser
-          </button>
-          <button onClick={handleExport} disabled={reponses.length === 0 || loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40">
-            <Download className="w-3.5 h-3.5" /> Exporter CSV
-          </button>
-        </div>
-      </div>
+    <div className="p-6 lg:p-8">
 
-      {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-3 rounded-xl mb-6">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-sm text-muted-foreground">Chargement des données…</p>
-          </div>
+      {/* ---- Barre mode édition ---- */}
+      {editMode ? (
+        <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-50 border border-blue-200 text-sm">
+          <Pencil size={15} className="text-blue-500 flex-shrink-0" />
+          <span className="text-blue-700 font-medium flex-1">Mode personnalisation actif — cliquez sur les textes ou les pastilles de couleur pour modifier</span>
+          <button onClick={resetAll} className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 text-xs font-medium">Réinitialiser</button>
+          <button onClick={saveAll} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-500 text-white text-xs font-bold hover:bg-blue-600">
+            <Check size={13} />Sauvegarder
+          </button>
+          <button onClick={() => setEditMode(false)} className="p-1.5 rounded-lg hover:bg-blue-100"><X size={15} className="text-blue-400" /></button>
         </div>
       ) : (
-        <>
-          <div className="flex gap-1 p-1 bg-muted rounded-xl mb-6 w-fit flex-wrap">
-            {TABS.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${tab === t.id ? 'bg-background text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {tab === 'synthese'    && <TabSynthese   reponses={reponses} />}
-          {tab === 'questions'   && <TabQuestions  reponses={reponses} />}
-          {tab === 'progression' && <TabProgression reponses={reponses} />}
-          {tab === 'donnees'     && <TabDonnees    reponses={reponses} onDelete={handleDelete} />}
-        </>
+        <button onClick={() => setEditMode(true)}
+          className="mb-6 flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-gray-300 text-gray-400 text-xs font-medium hover:border-blue-300 hover:text-blue-400 transition-all">
+          <Pencil size={13} />Personnaliser le tableau de bord
+        </button>
       )}
-    </motion.div>
+
+      {/* ---- Header ---- */}
+      <div className="mb-7">
+        <h1 className="text-2xl font-bold text-gray-800">
+          Bonjour, <span style={{ color: '#7A90B5' }}>{prenom}</span> 👋
+        </h1>
+        {editMode
+          ? <Editable value={greeting} onChange={setGreeting} style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }} />
+          : <p className="text-gray-500 text-sm mt-1">{greeting}</p>
+        }
+      </div>
+
+      {/* ---- KPI bar ---- */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+        {kpis.map((kpi, i) => {
+          const Icon = KPI_ICONS[i];
+          const key = KPI_KEYS[i];
+          return (
+            <div key={i} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: kpi.bg }}>
+                <Icon size={18} style={{ color: kpi.color }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xl font-bold text-gray-800 leading-none">{loading ? '…' : statValues[key]}</p>
+                {editMode
+                  ? <div className="flex items-center gap-1 mt-1">
+                      <Editable value={kpi.label} onChange={v => updateKpi(i, { label: v })} style={{ fontSize: '0.7rem', color: '#6B7280' }} />
+                      <ColorDot value={kpi.color} onChange={v => updateKpi(i, { color: v })} />
+                    </div>
+                  : <p className="text-xs text-gray-500 mt-0.5 truncate">{kpi.label}</p>
+                }
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ---- 4 modules ---- */}
+      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Mes modules</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {cards.map((card, i) => {
+          const Icon = CARD_ICONS[i];
+          const key = KPI_KEYS[i];
+          return editMode ? (
+            /* mode édition : pas de Link, tout est cliquable */
+            <div key={i} className="bg-white rounded-2xl p-5 border-2 border-dashed border-blue-200 flex items-start gap-4">
+              <div className="relative flex-shrink-0">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: card.bg }}>
+                  <Icon size={22} style={{ color: card.color }} />
+                </div>
+                <div className="absolute -bottom-1 -right-1">
+                  <ColorDot value={card.color} onChange={v => updateCard(i, { color: v, bg: v + '22' })} />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <Editable value={card.label} onChange={v => updateCard(i, { label: v })} style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1f2937' }} />
+                <Editable value={card.desc} onChange={v => updateCard(i, { desc: v })} textarea style={{ color: '#6B7280' }} />
+              </div>
+            </div>
+          ) : (
+            <Link key={i} to={CARD_ROUTES[i]}
+              className="group bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform"
+                style={{ background: card.bg }}>
+                <Icon size={22} style={{ color: card.color }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-gray-800 text-sm mb-0.5 truncate">{card.label}</h3>
+                <p className="text-xs text-gray-500 leading-snug line-clamp-2">{card.desc}</p>
+                <div className="flex items-baseline gap-1 mt-2">
+                  <span className="text-lg font-bold" style={{ color: card.color }}>
+                    {loading ? '…' : statValues[key]}
+                  </span>
+                  {statSuffix[key] && (
+                    <span className="text-xs text-gray-400">{statSuffix[key]}</span>
+                  )}
+                </div>
+              </div>
+              <ArrowRight size={16} className="text-gray-300 group-hover:text-gray-400 mt-1 transition-colors flex-shrink-0" />
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* ---- Quick action ---- */}
+      <div className="mt-6 bg-gradient-to-r from-[#EDF2FB] to-[#F3EFFC] rounded-2xl p-5 flex items-center justify-between gap-4 border border-[#7A90B5]/10">
+        <div className="min-w-0">
+          {editMode
+            ? <>
+                <Editable value={quickTitle} onChange={setQuickTitle} style={{ fontWeight: 700, color: '#1f2937' }} />
+                <Editable value={quickDesc} onChange={setQuickDesc} style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.25rem' }} />
+              </>
+            : <>
+                <p className="font-bold text-gray-800 truncate">{quickTitle}</p>
+                <p className="text-sm text-gray-500 mt-0.5 truncate">{quickDesc}</p>
+              </>
+          }
+        </div>
+        <Link to="/equipe"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white hover:opacity-90 shadow flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg,#7A90B5,#9B85C4)' }}>
+          <UserPlus size={15} />Ajouter
+        </Link>
+      </div>
+
+    </div>
   );
 }
