@@ -208,7 +208,9 @@ function cdnPrefixImages(): Plugin {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
+  const isGHPages = process.env.GITHUB_ACTIONS === 'true';
   return {
+    base: isGHPages ? '/Becomeusapp/' : '/',
     server: {
       host: "::",
       port: 8080,
