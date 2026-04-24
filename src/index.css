@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -40,88 +40,101 @@
 
 :root {
   /* Typography */
-  --font-sans: Inter, 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
-  
-  /* Radius */
-  --radius: 0.75rem;
+  --font-sans: 'Poppins', Inter, system-ui, -apple-system, sans-serif;
+  --font-heading: 'Poppins', sans-serif;
 
-  /* Core UI Tokens */
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.15 0.01 240);
-  --card: oklch(0.97 0.005 240);
-  --card-foreground: oklch(0.18 0.01 240);
-  --popover: oklch(0.99 0 0);
-  --popover-foreground: oklch(0.15 0.01 240);
-  --primary: oklch(0.38 0.12 220);
-  --primary-foreground: oklch(0.98 0.005 220);
-  --secondary: oklch(0.92 0.01 240);
-  --secondary-foreground: oklch(0.25 0.02 240);
-  --muted: oklch(0.94 0.008 240);
-  --muted-foreground: oklch(0.48 0.015 240);
-  --accent: oklch(0.45 0.14 220);
-  --accent-foreground: oklch(0.98 0.005 220);
-  --destructive: oklch(0.55 0.22 15);
+  /* Radius */
+  --radius: 1rem;
+
+  /* BecomeUs Pastel Palette */
+  --background: oklch(0.99 0.003 240);
+  --foreground: oklch(0.20 0.02 240);
+  --card: oklch(0.98 0.005 240);
+  --card-foreground: oklch(0.22 0.02 240);
+  --popover: oklch(0.99 0.003 240);
+  --popover-foreground: oklch(0.20 0.02 240);
+
+  /* Primary: soft slate-blue pastel */
+  --primary: oklch(0.55 0.09 240);
+  --primary-foreground: oklch(0.98 0.005 240);
+
+  /* Secondary: warm peach/coral pastel */
+  --secondary: oklch(0.92 0.04 35);
+  --secondary-foreground: oklch(0.30 0.05 35);
+
+  --muted: oklch(0.95 0.01 240);
+  --muted-foreground: oklch(0.52 0.02 240);
+
+  /* Accent: lavender */
+  --accent: oklch(0.88 0.05 290);
+  --accent-foreground: oklch(0.30 0.08 290);
+
+  --destructive: oklch(0.60 0.18 15);
   --destructive-foreground: oklch(0.98 0.01 15);
-  --border: oklch(0.90 0.01 240);
-  --input: oklch(0.88 0.012 240);
-  --ring: oklch(0.42 0.13 220);
-  
-  /* Chart Tokens */
-  --chart-1: oklch(0.50 0.16 220);
-  --chart-2: oklch(0.58 0.14 210);
-  --chart-3: oklch(0.48 0.12 230);
-  --chart-4: oklch(0.55 0.10 200);
-  --chart-5: oklch(0.52 0.15 215);
-  
-  /* Sidebar Tokens */
+  --border: oklch(0.91 0.01 240);
+  --input: oklch(0.90 0.01 240);
+  --ring: oklch(0.55 0.09 240);
+
+  /* BecomeUs Brand Colors */
+  --coral: oklch(0.75 0.10 35);
+  --lavender: oklch(0.80 0.07 290);
+  --slate-blue: oklch(0.58 0.08 240);
+  --soft-green: oklch(0.80 0.07 150);
+  --peach: oklch(0.88 0.06 45);
+
+  /* Chart */
+  --chart-1: oklch(0.58 0.08 240);
+  --chart-2: oklch(0.75 0.10 35);
+  --chart-3: oklch(0.80 0.07 290);
+  --chart-4: oklch(0.80 0.07 150);
+  --chart-5: oklch(0.88 0.06 45);
+
+  /* Sidebar */
   --sidebar: oklch(0.97 0.005 240);
   --sidebar-foreground: oklch(0.25 0.02 240);
-  --sidebar-primary: oklch(0.38 0.12 220);
-  --sidebar-primary-foreground: oklch(0.98 0.005 220);
+  --sidebar-primary: oklch(0.55 0.09 240);
+  --sidebar-primary-foreground: oklch(0.98 0.005 240);
   --sidebar-accent: oklch(0.92 0.01 240);
   --sidebar-accent-foreground: oklch(0.25 0.02 240);
   --sidebar-border: oklch(0.90 0.01 240);
-  --sidebar-ring: oklch(0.42 0.13 220);
+  --sidebar-ring: oklch(0.55 0.09 240);
 }
 
 .dark {
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.15 0.01 240);
-  --card: oklch(0.97 0.005 240);
-  --card-foreground: oklch(0.18 0.01 240);
-  --popover: oklch(0.99 0 0);
-  --popover-foreground: oklch(0.15 0.01 240);
-  --primary: oklch(0.38 0.12 220);
-  --primary-foreground: oklch(0.98 0.005 220);
-  --secondary: oklch(0.92 0.01 240);
-  --secondary-foreground: oklch(0.25 0.02 240);
-  --muted: oklch(0.94 0.008 240);
-  --muted-foreground: oklch(0.48 0.015 240);
-  --accent: oklch(0.45 0.14 220);
-  --accent-foreground: oklch(0.98 0.005 220);
-  --destructive: oklch(0.55 0.22 15);
+  --background: oklch(0.99 0.003 240);
+  --foreground: oklch(0.20 0.02 240);
+  --card: oklch(0.98 0.005 240);
+  --card-foreground: oklch(0.22 0.02 240);
+  --popover: oklch(0.99 0.003 240);
+  --popover-foreground: oklch(0.20 0.02 240);
+  --primary: oklch(0.55 0.09 240);
+  --primary-foreground: oklch(0.98 0.005 240);
+  --secondary: oklch(0.92 0.04 35);
+  --secondary-foreground: oklch(0.30 0.05 35);
+  --muted: oklch(0.95 0.01 240);
+  --muted-foreground: oklch(0.52 0.02 240);
+  --accent: oklch(0.88 0.05 290);
+  --accent-foreground: oklch(0.30 0.08 290);
+  --destructive: oklch(0.60 0.18 15);
   --destructive-foreground: oklch(0.98 0.01 15);
-  --border: oklch(0.90 0.01 240);
-  --input: oklch(0.88 0.012 240);
-  --ring: oklch(0.42 0.13 220);
-  
-  /* Chart Tokens */
-  --chart-1: oklch(0.50 0.16 220);
-  --chart-2: oklch(0.58 0.14 210);
-  --chart-3: oklch(0.48 0.12 230);
-  --chart-4: oklch(0.55 0.10 200);
-  --chart-5: oklch(0.52 0.15 215);
-  
-  /* Sidebar Tokens */
+  --border: oklch(0.91 0.01 240);
+  --input: oklch(0.90 0.01 240);
+  --ring: oklch(0.55 0.09 240);
+
+  --chart-1: oklch(0.58 0.08 240);
+  --chart-2: oklch(0.75 0.10 35);
+  --chart-3: oklch(0.80 0.07 290);
+  --chart-4: oklch(0.80 0.07 150);
+  --chart-5: oklch(0.88 0.06 45);
+
   --sidebar: oklch(0.97 0.005 240);
   --sidebar-foreground: oklch(0.25 0.02 240);
-  --sidebar-primary: oklch(0.38 0.12 220);
-  --sidebar-primary-foreground: oklch(0.98 0.005 220);
+  --sidebar-primary: oklch(0.55 0.09 240);
+  --sidebar-primary-foreground: oklch(0.98 0.005 240);
   --sidebar-accent: oklch(0.92 0.01 240);
   --sidebar-accent-foreground: oklch(0.25 0.02 240);
   --sidebar-border: oklch(0.90 0.01 240);
-  --sidebar-ring: oklch(0.42 0.13 220);
+  --sidebar-ring: oklch(0.55 0.09 240);
 }
 
 @theme inline {
@@ -163,9 +176,16 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* BecomeUs Brand Tokens */
+  --color-coral: var(--coral);
+  --color-lavender: var(--lavender);
+  --color-slate-blue: var(--slate-blue);
+  --color-soft-green: var(--soft-green);
+  --color-peach: var(--peach);
+
   /* Typography */
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+  --font-heading: var(--font-heading);
 
   /* Radius */
   --radius-lg: var(--radius);
