@@ -1,19 +1,22 @@
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { InlineEditorProvider } from '@/lib/inlineEditor';
 import Navbar from '@/components/Navbar';
 import HomePage from '@/pages/HomePage';
 import CustomizerPanel from '@/components/CustomizerPanel';
-
-const ROUTE_PATHS = { HOME: '/' };
+import EditModeToggle from '@/components/EditModeToggle';
 
 function App() {
   return (
-    <Router>
-      <Navbar />
-      <Routes>
-        <Route path={ROUTE_PATHS.HOME} element={<HomePage />} />
-      </Routes>
-      <CustomizerPanel />
-    </Router>
+    <InlineEditorProvider>
+      <Router>
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+        </Routes>
+        <CustomizerPanel />
+        <EditModeToggle />
+      </Router>
+    </InlineEditorProvider>
   );
 }
 
