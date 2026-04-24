@@ -25,14 +25,12 @@ export default function Navbar() {
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-white" />
-          </div>
-          <span className="font-bold text-xl tracking-tight">
-            <span className="text-foreground">Become</span>
-            <span className="text-[#C4956A]">Us</span>
-          </span>
+        <div className="flex items-center">
+          <img
+            src="/images/becomeus_logo.png"
+            alt="BecomeUs"
+            className="h-10 w-auto object-contain"
+          />
         </div>
 
         {/* Desktop Nav */}

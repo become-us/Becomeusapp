@@ -37,36 +37,54 @@ function Hero() {
       </div>
 
       <div className="relative max-w-5xl mx-auto px-6 text-center">
-        {/* Badge */}
+        {/* Logo centré dans le Hero */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 bg-accent/50 text-accent-foreground text-sm font-medium px-4 py-2 rounded-full border border-accent mb-8"
+          transition={{ duration: 0.6, delay: 0.05 }}
+          className="flex justify-center mb-8"
         >
-          <span className="w-2 h-2 rounded-full bg-[#9B85C4] animate-pulse" />
-          La plateforme RH qui coache vos équipes
+          <img
+            src="/images/becomeus_logo.png"
+            alt="BecomeUs"
+            className="h-16 md:h-20 w-auto object-contain"
+          />
         </motion.div>
 
         {/* Headline */}
         <motion.h1
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1 }}
-          className="text-5xl md:text-7xl font-extrabold tracking-tight text-foreground mb-6 leading-tight"
+          transition={{ duration: 0.7, delay: 0.15 }}
+          className="text-4xl md:text-6xl font-extrabold tracking-tight text-foreground mb-6 leading-tight"
         >
-          On arrive seul.
-          <br />
-          <span className="text-[#C4956A]">On repart</span>{' '}
-          <span className="text-primary">en équipe.</span>
+          La plateforme RH qui{' '}
+          <span className="text-[#C4956A]">coache</span>{' '}
+          <span className="text-primary">vos équipes</span>
         </motion.h1>
+
+        {/* Citation */}
+        <motion.blockquote
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.28 }}
+          className="relative max-w-xl mx-auto mb-8"
+        >
+          <div className="absolute -left-4 top-0 text-5xl leading-none text-[#C4956A]/40 font-serif select-none">"</div>
+          <p className="text-base md:text-lg italic text-muted-foreground px-6 py-4 bg-accent/30 rounded-2xl border border-accent/40">
+            <span className="text-[#7A90B5] font-semibold not-italic">On arrive seul.</span>
+            {' '}On repart{' '}
+            <span className="text-[#C4956A] font-semibold not-italic">en équipe.</span>
+          </p>
+          <div className="absolute -right-4 bottom-0 text-5xl leading-none text-[#C4956A]/40 font-serif select-none rotate-180">"</div>
+        </motion.blockquote>
 
         {/* Subtitle */}
         <motion.p
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.25 }}
-          className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
+          transition={{ duration: 0.6, delay: 0.35 }}
+          className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
         >
           BecomeUs transforme l'intégration RH en véritable coaching d'équipe.
           Chaque nouveau talent devient un pilier. Chaque manager, un coach.
