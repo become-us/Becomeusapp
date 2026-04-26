@@ -1,6 +1,7 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { SettingsProvider } from '@/lib/settings';
 import { Loader2 } from 'lucide-react';
 
 import AuthPage from '@/pages/AuthPage';
@@ -10,7 +11,9 @@ import EquipePage from '@/pages/EquipePage';
 import IntegrationsPage from '@/pages/IntegrationsPage';
 import FormationsPage from '@/pages/FormationsPage';
 import MeteoPage from '@/pages/MeteoPage';
+import CustomPageView from '@/pages/CustomPageView';
 import InstallBanner from '@/components/InstallBanner';
+import AdminPanel from '@/components/AdminPanel';
 
 function ProtectedLayout() {
   const { user, loading } = useAuth();
@@ -44,6 +47,7 @@ function AppRoutes() {
         <Route path="integrations" element={<IntegrationsPage />} />
         <Route path="formations" element={<FormationsPage />} />
         <Route path="meteo" element={<MeteoPage />} />
+        <Route path="page/:pageId" element={<CustomPageView />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
@@ -54,8 +58,11 @@ export default function App() {
   return (
     <HashRouter>
       <AuthProvider>
-        <AppRoutes />
-        <InstallBanner />
+        <SettingsProvider>
+          <AppRoutes />
+          <AdminPanel />
+          <InstallBanner />
+        </SettingsProvider>
       </AuthProvider>
     </HashRouter>
   );
