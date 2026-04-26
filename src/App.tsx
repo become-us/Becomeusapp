@@ -15,6 +15,8 @@ import CustomPageView from '@/pages/CustomPageView';
 import InstallBanner from '@/components/InstallBanner';
 import AdminPanel from '@/components/AdminPanel';
 
+const ADMIN_EMAIL = 'cuisiniercelyne30@gmail.com';
+
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -34,6 +36,12 @@ function PublicRoute({ children }: React.PropsWithChildren) {
   if (loading) return null;
   if (user) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
+}
+
+function AdminGate() {
+  const { user } = useAuth();
+  if (!user || user.email !== ADMIN_EMAIL) return null;
+  return <AdminPanel />;
 }
 
 function AppRoutes() {
@@ -60,7 +68,7 @@ export default function App() {
       <AuthProvider>
         <SettingsProvider>
           <AppRoutes />
-          <AdminPanel />
+          <AdminGate />
           <InstallBanner />
         </SettingsProvider>
       </AuthProvider>

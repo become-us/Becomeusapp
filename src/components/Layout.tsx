@@ -13,11 +13,14 @@ const ICON_MAP: Record<string, React.ElementType> = {
   FileText, Star, Heart, Zap, Target, Award,
 };
 
+const ADMIN_EMAIL = 'cuisiniercelyne30@gmail.com';
+
 export default function Layout() {
   const { user, signOut } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
 
+  const isAdmin = user?.email === ADMIN_EMAIL;
   const initials = user?.user_metadata?.full_name
     ? user.user_metadata.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.email?.slice(0, 2).toUpperCase() ?? 'ME';
@@ -73,6 +76,11 @@ export default function Layout() {
               <p className="text-xs font-semibold text-gray-700 truncate">
                 {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
               </p>
+              {isAdmin && (
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#EDF2FB', color: '#7A90B5' }}>
+                  Admin ⚙️
+                </span>
+              )}
               <p className="text-xs text-gray-400 truncate">{user?.email}</p>
             </div>
             <button onClick={handleSignOut} title="Déconnexion"
