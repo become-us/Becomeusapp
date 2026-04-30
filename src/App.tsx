@@ -11,6 +11,7 @@ import EquipePage from '@/pages/EquipePage';
 import IntegrationsPage from '@/pages/IntegrationsPage';
 import FormationsPage from '@/pages/FormationsPage';
 import MeteoPage from '@/pages/MeteoPage';
+import PlanningPage from '@/pages/PlanningPage';
 import CustomPageView from '@/pages/CustomPageView';
 import InstallBanner from '@/components/InstallBanner';
 import AdminPanel from '@/components/AdminPanel';
@@ -55,6 +56,7 @@ function AppRoutes() {
         <Route path="integrations" element={<IntegrationsPage />} />
         <Route path="formations" element={<FormationsPage />} />
         <Route path="meteo" element={<MeteoPage />} />
+        <Route path="planning" element={<PlanningPage />} />
         <Route path="page/:pageId" element={<CustomPageView />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -5,12 +5,12 @@ import { useSettings } from '@/lib/settings';
 import { assetUrl } from '@/lib/assetUrl';
 import {
   LayoutDashboard, Users, Rocket, BookOpen, CloudSun,
-  FileText, Star, Heart, Zap, Target, Award, LogOut, ChevronRight,
+  FileText, Star, Heart, Zap, Target, Award, LogOut, ChevronRight, CalendarDays,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   LayoutDashboard, Users, Rocket, BookOpen, CloudSun,
-  FileText, Star, Heart, Zap, Target, Award,
+  FileText, Star, Heart, Zap, Target, Award, CalendarDays,
 };
 
 const ADMIN_EMAIL = 'cuisiniercelyne30@gmail.com';

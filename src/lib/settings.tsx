@@ -29,6 +29,7 @@ export const DEFAULT_NAV: NavItem[] = [
   { id: 'integrations', label: 'Mes intégrations',   to: '/integrations', icon: 'Rocket',          color: '#C4956A', visible: true },
   { id: 'formations',   label: 'Mes formations',     to: '/formations',   icon: 'BookOpen',        color: '#9B85C4', visible: true },
   { id: 'meteo',        label: "Météo d'équipe",     to: '/meteo',        icon: 'CloudSun',        color: '#6BB5A0', visible: true },
+  { id: 'planning',     label: 'Planning équipe',    to: '/planning',     icon: 'CalendarDays',    color: '#9B85C4', visible: true },
 ];
 
 export const DEFAULT_SETTINGS: AppSettings = {
